@@ -1,4 +1,4 @@
-"""Centralized FastAPI exception handlers."""
+"""集中式 FastAPI 异常处理器。"""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def register_exception_handlers(app: FastAPI) -> None:
-    """Attach global exception handlers for stable API responses."""
+    """注册全局异常处理，保证 API 返回结构稳定。"""
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(

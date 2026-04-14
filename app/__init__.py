@@ -1,1 +1,1 @@
-"""Application package for backend service."""
+"""后端服务应用包。"""

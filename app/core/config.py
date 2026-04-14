@@ -1,4 +1,4 @@
-"""Runtime configuration helpers."""
+"""运行时配置工具。"""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class Settings:
-    """Application settings loaded from environment variables."""
+    """从环境变量加载应用配置。"""
 
     app_name: str = "Clever Agents API"
     app_version: str = "0.1.0"
@@ -18,7 +18,7 @@ class Settings:
 
 
 def get_settings() -> Settings:
-    """Build settings from env vars with safe defaults."""
+    """基于环境变量构建配置，并提供安全默认值。"""
 
     return Settings(
         app_name=os.getenv("APP_NAME", "Clever Agents API"),
