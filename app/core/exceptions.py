@@ -19,17 +19,21 @@ def register_exception_handlers(app: FastAPI) -> None:
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
         logger.warning(
-            "Validation error on %s %s: %s", request.method, request.url.path, exc.errors()
+            "Validation error on %s %s: %s",
+            request.method,
+            request.url.path,
+            exc.errors()
         )
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             content={
                 "code": "VALIDATION_ERROR",
-                "message": "Request validation failed.",
+                "message": "请求验证失败。",
                 "details": exc.errors(),
             },
         )
 
+    """未处理异常处理函数"""
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         logger.exception("Unhandled error on %s %s", request.method, request.url.path, exc_info=exc)
@@ -37,6 +41,6 @@ def register_exception_handlers(app: FastAPI) -> None:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
                 "code": "INTERNAL_SERVER_ERROR",
-                "message": "An unexpected error occurred.",
+                "message": "发生意外错误。",
             },
         )

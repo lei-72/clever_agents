@@ -14,11 +14,13 @@ from app.core.exceptions import register_exception_handlers
 from app.core.logging import setup_logging
 from app.schemas.common import MessageResponse
 
+"""全局配置初始化"""
 settings = get_settings()
 setup_logging(settings.log_level)
 logger = logging.getLogger(__name__)
 
 
+"""应用生命周期管理器"""
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """处理应用启动与关闭生命周期。"""
