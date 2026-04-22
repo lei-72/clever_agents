@@ -5,21 +5,30 @@ from __future__ import annotations
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
+from app.agents import QAAgentService
 from app.orchestrator import OrchestratorService
 from app.schemas.orchestrator import (
+    OrchestratorExecuteResponse,
     OrchestratorRequest,
     OrchestratorRouteResponse,
 )
 
 router = APIRouter()
-# PHASE3-MVP: 服务实例当前为无状态，可直接模块级复用。
-service = OrchestratorService()
+_qa_service: QAAgentService | None = None
+
+
+async def _get_qa_service() -> QAAgentService:
+    global _qa_service
+    if _qa_service is None:
+        _qa_service = await QAAgentService.create()
+    return _qa_service
 
 
 @router.post("/route", response_model=OrchestratorRouteResponse)
 async def route_request(payload: OrchestratorRequest) -> OrchestratorRouteResponse:
     """返回编排层的同步路由结果。"""
 
+    service = OrchestratorService()
     route = service.route(payload)
     return OrchestratorRouteResponse(route=route)
 
@@ -33,6 +42,7 @@ async def stream_route(payload: OrchestratorRequest) -> StreamingResponse:
     - 事件顺序: route -> delta -> done
     """
 
+    service = OrchestratorService()
     return StreamingResponse(
         service.stream_route_events(payload),
         media_type="text/event-stream",
@@ -42,3 +52,12 @@ async def stream_route(payload: OrchestratorRequest) -> StreamingResponse:
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.post("/execute", response_model=OrchestratorExecuteResponse)
+async def execute(payload: OrchestratorRequest) -> OrchestratorExecuteResponse:
+    """执行编排后的目标 Agent（当前支持 QA Agent）。"""
+
+    qa_service = await _get_qa_service()
+    service = OrchestratorService(qa_executor=qa_service.run)
+    return await service.execute(payload)

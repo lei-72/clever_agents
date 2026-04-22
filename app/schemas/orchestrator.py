@@ -6,6 +6,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from app.schemas.qa import QAResponse
+
 
 class IntentLabel(str, Enum):
     """编排层支持的最小意图集合。
@@ -52,6 +54,14 @@ class OrchestratorRouteResponse(BaseModel):
 
     route: OrchestratorRouteResult
     message: str = Field(default="routed")
+
+
+class OrchestratorExecuteResponse(BaseModel):
+    """编排执行响应。"""
+
+    route: OrchestratorRouteResult
+    qa_result: QAResponse | None = None
+    message: str = Field(default="executed")
 
 
 class SseEventType(str, Enum):

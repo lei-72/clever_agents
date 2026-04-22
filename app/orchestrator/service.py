@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
+from typing import Awaitable, Callable
 
 from app.schemas.orchestrator import (
     AgentName,
     IntentLabel,
+    OrchestratorExecuteResponse,
     OrchestratorRequest,
     OrchestratorRouteResult,
     SseEnvelope,
     SseEventType,
 )
+from app.schemas.qa import QARequest, QAResponse
 
 
 class OrchestratorService:
@@ -44,6 +47,9 @@ class OrchestratorService:
             "检测到面试训练相关关键词，路由到 Interview Agent。",
         ),
     )
+
+    def __init__(self, qa_executor: Callable[[QARequest], Awaitable[QAResponse]] | None = None) -> None:
+        self._qa_executor = qa_executor
 
     def route(self, request: OrchestratorRequest) -> OrchestratorRouteResult:
         """基于规则进行意图识别并返回路由结果。"""
@@ -107,6 +113,21 @@ class OrchestratorService:
             data={"status": "completed"},
         )
         yield self._format_sse(done_event)
+
+    async def execute(self, request: OrchestratorRequest) -> OrchestratorExecuteResponse:
+        """执行编排，当前仅接入 QA Agent 实现。"""
+
+        route_result = self.route(request)
+        qa_result: QAResponse | None = None
+        if route_result.agent == AgentName.QA_AGENT and self._qa_executor is not None:
+            qa_result = await self._qa_executor(
+                QARequest(
+                    query=request.query,
+                    session_id=request.session_id or "orchestrator-default",
+                    user_id=request.user_id,
+                )
+            )
+        return OrchestratorExecuteResponse(route=route_result, qa_result=qa_result)
 
     @staticmethod
     def _format_sse(envelope: SseEnvelope) -> str:
