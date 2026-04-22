@@ -1,4 +1,6 @@
-# Test your FastAPI endpoints
+# ======================================================
+# 基础连通性检查（系统健康）
+# ======================================================
 
 GET http://127.0.0.1:8000/
 Accept: application/json
@@ -12,5 +14,34 @@ Accept: application/json
 
 GET http://127.0.0.1:8000/api/v1/system/ready
 Accept: application/json
+
+###
+
+# ======================================================
+# PHASE3-MVP: Orchestrator 同步路由
+# 用途：验证意图识别 + Agent 选择的结构化返回
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/orchestrator/route
+Content-Type: application/json
+Accept: application/json
+
+{
+  "query": "请帮我批改这份作业"
+}
+
+###
+
+# ======================================================
+# PHASE3-MVP: Orchestrator SSE 流式协议
+# 用途：验证事件顺序 route -> delta -> done
+# 说明：IDE HTTP Client 会直接显示 event/data 文本帧
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/orchestrator/stream
+Content-Type: application/json
+Accept: text/event-stream
+
+{
+  "query": "我想进行一场模拟面试"
+}
 
 ###
