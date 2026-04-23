@@ -1,6 +1,7 @@
 """Schema 导出集合。"""
 
 from app.schemas.qa import (
+    FileIngestResponse,
     KnowledgeChunkIn,
     KnowledgeIngestRequest,
     KnowledgeIngestResponse,
@@ -13,6 +14,7 @@ __all__ = [
     "QARequest",
     "QAResponse",
     "QASource",
+    "FileIngestResponse",
     "KnowledgeChunkIn",
     "KnowledgeIngestRequest",
     "KnowledgeIngestResponse",

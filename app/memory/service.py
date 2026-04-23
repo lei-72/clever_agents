@@ -19,7 +19,6 @@ class MemoryService:
     @classmethod
     def from_settings(cls) -> "MemoryService":
         from redis.asyncio import Redis
-
         settings = get_settings()
         client = Redis.from_url(settings.redis_url, decode_responses=True)
         return cls(redis=client)

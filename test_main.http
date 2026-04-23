@@ -45,3 +45,90 @@ Accept: text/event-stream
 }
 
 ###
+
+# ======================================================
+# PHASE4: QA 知识入库测试
+# 用途：验证 chunks -> Postgres/Milvus 入库链路
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/qa/ingest
+Content-Type: application/json
+Accept: application/json
+
+{
+  "chunks": [
+    {
+      "document_id": "doc-test-qa-001",
+      "chunk_id": "c1",
+      "title": "LangGraph状态机",
+      "content": "LangGraph 通过 StateGraph 显式定义节点与边，适合构建可控 Agent 流程。",
+      "source_uri": "kb://test/langgraph"
+    },
+    {
+      "document_id": "doc-test-qa-001",
+      "chunk_id": "c2",
+      "title": "RAG标准流程",
+      "content": "RAG 常见流程是检索文档、重排候选、拼接上下文、再调用模型生成回答。",
+      "source_uri": "kb://test/rag"
+    }
+  ]
+}
+
+###
+
+# ======================================================
+# PHASE4: QA 问答测试
+# 用途：验证 ask 接口返回 answer/confidence/sources/trace_id
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/qa/ask
+Content-Type: application/json
+Accept: application/json
+
+{
+  "query": "什么是 RAG 的标准流程？",
+  "session_id": "qa-test-session-001",
+  "user_id": "qa-test-user-001"
+}
+
+###
+
+# ======================================================
+# PHASE4: Orchestrator 执行测试
+# 用途：验证 execute 路由到 QA Agent 并返回 qa_result
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/orchestrator/execute
+Content-Type: application/json
+Accept: application/json
+
+{
+  "query": "请基于知识库解释一下 RAG 的标准流程",
+  "session_id": "qa-test-session-001",
+  "user_id": "qa-test-user-001"
+}
+
+###
+
+# ======================================================
+# PHASE4: QA 文件上传入库测试（txt/md/pdf/docx）
+# 用途：验证大文件解析切块后自动入库
+# 注意：将 ./fixtures/sample.txt 替换为你本地实际文件路径
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/qa/ingest-file
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+Accept: application/json
+
+--WebAppBoundary
+Content-Disposition: form-data; name="document_id"
+
+doc-upload-001
+--WebAppBoundary
+Content-Disposition: form-data; name="source_uri"
+
+file://local/sample.txt
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="sample.txt"
+Content-Type: text/plain
+
+< ./fixtures/sample.txt
+--WebAppBoundary--
+
+###

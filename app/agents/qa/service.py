@@ -9,13 +9,14 @@ from app.core.config import get_settings
 from app.llm import LLMFactory
 from app.memory import MemoryService
 from app.schemas.qa import (
+    FileIngestResponse,
     KnowledgeChunkIn,
     KnowledgeIngestRequest,
     KnowledgeIngestResponse,
     QARequest,
     QAResponse,
 )
-from app.tools import RAGTool
+from app.tools import DocumentParserTool, RAGTool
 
 from .graph import build_qa_graph
 from .nodes import AsyncQANodes
@@ -28,6 +29,7 @@ class QAAgentService:
 
     graph_app: object
     tools: QAAgentTools
+    parser: DocumentParserTool
 
     @classmethod
     async def create(cls) -> "QAAgentService":
@@ -36,7 +38,7 @@ class QAAgentService:
         tools = QAAgentTools(rag_tool=rag_tool, memory_service=memory_service)
         nodes = AsyncQANodes(tools=tools, llm_factory=LLMFactory.from_settings())
         graph_app = build_qa_graph(nodes)
-        return cls(graph_app=graph_app, tools=tools)
+        return cls(graph_app=graph_app, tools=tools, parser=DocumentParserTool())
 
     async def run(self, request: QARequest) -> QAResponse:
         settings = get_settings()
@@ -60,6 +62,29 @@ class QAAgentService:
         )
 
     async def ingest_knowledge(self, request: KnowledgeIngestRequest) -> KnowledgeIngestResponse:
-        inserted = await self.tools.ingest_chunks([KnowledgeChunkIn(**item.model_dump()) for item in request.chunks])
+        inserted = await self.tools.ingest_chunks(request.chunks)
         settings = get_settings()
         return KnowledgeIngestResponse(inserted=inserted, collection=settings.milvus_collection)
+
+    async def ingest_file(
+        self,
+        *,
+        filename: str,
+        content: bytes,
+        document_id: str,
+        source_uri: str | None = None,
+    ) -> FileIngestResponse:
+        parsed = self.parser.parse(filename=filename, content=content)
+        chunks = self.parser.build_chunks(
+            document_id=document_id,
+            source_uri=source_uri,
+            parsed=parsed,
+        )
+        inserted = await self.tools.ingest_chunks(chunks)
+        settings = get_settings()
+        return FileIngestResponse(
+            document_id=document_id,
+            filename=filename,
+            chunk_count=inserted,
+            collection=settings.milvus_collection,
+        )

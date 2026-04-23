@@ -22,7 +22,7 @@ class LLMFactory:
     def from_settings(cls) -> "LLMFactory":
         settings = get_settings()
         return cls(
-            api_key=settings.openai_api_key,
+            api_key=settings.dashscope_api_key,
             base_url=settings.openai_base_url.rstrip("/"),
             chat_model=settings.qa_chat_model,
             embedding_model=settings.qa_embedding_model,
@@ -48,10 +48,10 @@ class LLMFactory:
 
     async def _post_json(self, path: str, payload: dict[str, object]) -> dict[str, object]:
         if not self.api_key:
-            raise RuntimeError("OPENAI_API_KEY is required for QA agent.")
+            raise RuntimeError("DASHSCOPE_API_KEY is required for QA agent.")
 
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             resp = await client.post(
                 f"{self.base_url}{path}",
                 json=payload,

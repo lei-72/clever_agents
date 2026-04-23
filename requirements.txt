@@ -3,3 +3,5 @@ asyncpg
 pymilvus
 langgraph
 httpx
+pypdf
+python-docx

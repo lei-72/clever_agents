@@ -56,3 +56,12 @@ class KnowledgeIngestResponse(BaseModel):
 
     inserted: int = Field(..., ge=0)
     collection: str
+
+
+class FileIngestResponse(BaseModel):
+    """文件解析入库响应。"""
+
+    document_id: str
+    filename: str
+    chunk_count: int = Field(..., ge=0)
+    collection: str
