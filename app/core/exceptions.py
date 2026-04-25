@@ -8,11 +8,27 @@ from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.core.errors import AppError
+
 logger = logging.getLogger(__name__)
 
 
 def register_exception_handlers(app: FastAPI) -> None:
     """注册全局异常处理，保证 API 返回结构稳定。"""
+
+    @app.exception_handler(AppError)
+    async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+        logger.warning(
+            "App error on %s %s: %s (%s)",
+            request.method,
+            request.url.path,
+            exc.code,
+            exc.message,
+        )
+        payload: dict[str, object] = {"code": exc.code, "message": exc.message}
+        if exc.details is not None:
+            payload["details"] = exc.details
+        return JSONResponse(status_code=exc.status_code, content=payload)
 
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(

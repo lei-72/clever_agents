@@ -43,3 +43,18 @@ def authenticate_user(username: str, password: str) -> UserRecord | None:
     if not verify_password(password, user.password_hash):
         return None
     return user
+
+
+def register_user(username: str, password: str, role: Role) -> UserRecord | None:
+    """注册新用户。如果用户名已存在返回 None。"""
+    
+    if username in _USER_STORE:
+        return None
+        
+    new_user = UserRecord(
+        username=username,
+        role=role,
+        password_hash=hash_password(password)
+    )
+    _USER_STORE[username] = new_user
+    return new_user

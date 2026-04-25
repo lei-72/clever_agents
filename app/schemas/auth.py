@@ -16,6 +16,15 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=6, max_length=128)
 
 
+class RegisterRequest(BaseModel):
+    """注册请求。"""
+
+    username: str = Field(min_length=3, max_length=64)
+    password: str = Field(min_length=6, max_length=128)
+    role: Role = Field(default="student")
+
+
+
 class TokenResponse(BaseModel):
     """登录返回令牌。"""
 

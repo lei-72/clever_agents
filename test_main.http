@@ -108,6 +108,255 @@ Accept: application/json
 ###
 
 # ======================================================
+# PIPELINE-V1: 求职辅导全链路
+# 用途：简历诊断 -> 模拟面试 -> 求职答疑 -> offer 分析，统一输出 + trace
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/orchestrator/pipeline/execute
+Content-Type: application/json
+Accept: application/json
+
+{
+  "query": "我想在两个月内冲刺后端岗位，请帮我做完整求职辅导并分析 offer 选择策略。",
+  "user_id": "job-user-001",
+  "session_id": "job-pipeline-001",
+  "pipeline_type": "job_coaching",
+  "expect_trace": true,
+  "resume_payload": {
+    "resume_text": "李四\\n3年后端开发经验，负责订单系统与支付链路优化，熟悉 Python/FastAPI/MySQL/Redis。\\n项目：将接口响应时间从 220ms 优化到 90ms。",
+    "target_role": "后端工程师",
+    "job_description": "负责高并发 API 设计、性能调优、线上故障排查。"
+  },
+  "interview_payload": {
+    "candidate_id": "candidate-job-001",
+    "resume_profile": {
+      "summary": "3 年后端经验，做过支付和订单核心链路。",
+      "skills": ["python", "fastapi", "redis", "mysql"],
+      "projects": ["支付系统重构", "订单性能优化"]
+    },
+    "history_performance": [
+      {
+        "question_signature": "history-system-design",
+        "score": 61,
+        "weak_tags": ["system_design", "tradeoff"]
+      }
+    ],
+    "weak_tag_pool": ["system_design", "mysql_index", "communication"]
+  }
+}
+
+###
+
+# ======================================================
+# PHASE7: Resume Agent 简历诊断测试
+# 用途：验证六维三组并行评审、逐句定位改写建议、优先级分层、雷达图数据输出
+# 方法注释：
+# 1) 直接运行本请求：验证接口协议是否正确（依赖真实 LLM 配置）。
+# 2) 若本地未配置 LLM Key：可用 TestClient + mock service 做接口可用性验证（我已在命令行实测）。
+# 预期返回关键字段：
+# - overall_score
+# - dimension_scores（6个维度）
+# - high_priority_issues / medium_priority_issues / low_priority_issues
+# - radar_metrics / radar_chart(indicators, values, max_value)
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/resume/review
+Content-Type: application/json
+Accept: application/json
+
+{
+  "resume_text": "张三\\n目标岗位：后端工程师\\n工作经历：负责订单系统开发与维护。参与性能优化。\\n项目经历：参与支付系统重构，完成接口联调。\\n技能：Python、FastAPI、MySQL、Redis。",
+  "target_role": "后端工程师",
+  "job_description": "负责高并发服务开发与优化，具备性能调优和项目交付经验。"
+}
+
+###
+
+# ======================================================
+# PHASE6: Orchestrator 执行 Interview Agent
+# 用途：验证路由到 interview_agent 时执行 interview_payload
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/orchestrator/execute
+Content-Type: application/json
+Accept: application/json
+
+{
+  "query": "我想来一场模拟面试",
+  "session_id": "interview-session-router-001",
+  "user_id": "candidate-001",
+  "interview_payload": {
+    "candidate_id": "candidate-001",
+    "resume_profile": {
+      "summary": "2 年 Java 后端开发经验，做过支付网关。",
+      "skills": ["java", "mysql", "system_design"],
+      "projects": ["支付系统重构"]
+    },
+    "history_performance": [
+      {
+        "question_signature": "history-tech-mysql-index",
+        "score": 58,
+        "weak_tags": ["mysql", "index"]
+      }
+    ],
+    "weak_tag_pool": ["mysql", "concurrency", "system_design"]
+  }
+}
+
+###
+
+# ======================================================
+# PIPELINE-V1: 代码作业辅导全链路
+# 用途：题意解析 -> 代码批改 -> bug 修复 -> 知识讲解 -> 优化建议，统一输出 + trace
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/orchestrator/pipeline/execute
+Content-Type: application/json
+Accept: application/json
+
+{
+  "query": "这道题我总是超时，请帮我完整分析题意、批改代码并给出修复和优化方案。",
+  "user_id": "coding-user-001",
+  "session_id": "coding-pipeline-001",
+  "pipeline_type": "coding_coaching",
+  "expect_trace": true,
+  "grading_payload": {
+    "exam_id": "exam-code-001",
+    "student_id": "stu-code-001",
+    "teacher_id": "teacher-code-001",
+    "questions": [
+      {
+        "question_id": "q-code-timeout-1",
+        "question_type": "coding",
+        "stem": "给定数组，返回出现频率最高的前 K 个元素。",
+        "max_score": 20,
+        "student_answer": "def top_k(nums, k):\n    # O(n*k) 的朴素实现\n    result=[]\n    for _ in range(k):\n        best=None\n        best_count=0\n        for x in nums:\n            c=nums.count(x)\n            if c>best_count and x not in result:\n                best=x\n                best_count=c\n        result.append(best)\n    return result",
+        "coding_rubric": {
+          "requirements": ["时间复杂度优于 O(n*k*n)", "结果正确", "边界条件处理"],
+          "test_cases": ["[1,1,1,2,2,3], k=2 -> [1,2]", "[1], k=1 -> [1]"]
+        },
+        "knowledge_tags": ["hashmap", "heap", "complexity"]
+      }
+    ]
+  }
+}
+
+###
+
+# ======================================================
+# PHASE6: Interview Agent 启动会话
+# 用途：验证四阶段状态机初始化 + 定制化首题生成
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/interview/start
+Content-Type: application/json
+Accept: application/json
+
+{
+  "candidate_id": "candidate-001",
+  "resume_profile": {
+    "summary": "3 年后端开发经验，负责过高并发 API 与消息系统。",
+    "skills": ["python", "redis", "system_design"],
+    "projects": ["订单系统重构"]
+  },
+  "history_performance": [
+    {
+      "question_signature": "history-tech-redis",
+      "score": 62,
+      "weak_tags": ["redis", "cache_consistency"]
+    }
+  ],
+  "weak_tag_pool": ["redis", "distributed_lock", "system_design"]
+}
+
+###
+
+# ======================================================
+# PHASE6: Interview Agent 提交答案
+# 用途：验证自动推进 / 跳转 / 回溯 / 中断逻辑
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/interview/interview-REPLACE_SESSION_ID/answer
+Content-Type: application/json
+Accept: application/json
+
+{
+  "answer": "我先给出结论，再说明技术细节和线上案例。",
+  "jump_to_stage": null,
+  "rollback_to_stage": null,
+  "interrupt": false
+}
+
+###
+
+# ======================================================
+# PHASE6: Interview Agent 一键生成报告
+# 用途：验证异步聚合报告 API
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/interview/interview-REPLACE_SESSION_ID/report/generate
+Accept: application/json
+
+###
+
+# ======================================================
+# PHASE6: Interview Agent 查询报告
+# 用途：验证报告持久化与查询
+# ======================================================
+GET http://127.0.0.1:8000/api/v1/interview/interview-REPLACE_SESSION_ID/report
+Accept: application/json
+
+###
+
+# ======================================================
+# PHASE5: 教师审核并发布
+# 用途：验证人工修正 AI 分数后确认发布
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/grading/review-publish
+Content-Type: application/json
+Accept: application/json
+
+{
+  "grading_result": {
+    "exam_id": "exam-001",
+    "student_id": "stu-001",
+    "total_score": 20,
+    "full_score": 30,
+    "reviewed": false,
+    "question_results": [
+      {
+        "question_id": "q-obj-1",
+        "question_type": "objective",
+        "score": 5,
+        "is_correct": true,
+        "rationale": "答案与标准答案一致。",
+        "matched_points": [],
+        "missed_points": [],
+        "suggestions": []
+      }
+    ],
+    "teacher_review_items": [
+      {
+        "question_id": "q-obj-1",
+        "ai_score": 5,
+        "final_score": 5,
+        "modified_by_teacher": false,
+        "teacher_comment": null
+      }
+    ],
+    "analysis_report": {
+      "wrong_reason_summary": [],
+      "weak_knowledge_points": [],
+      "answering_shortcomings": [],
+      "optimization_suggestions": []
+    },
+    "trace_id": "trace-demo"
+  },
+  "overrides": [
+    {
+      "question_id": "q-obj-1",
+      "final_score": 4,
+      "teacher_comment": "答案表达不完整，酌情扣分。"
+    }
+  ]
+}
+
+###
+
+# ======================================================
 # PHASE4: QA 文件上传入库测试（txt/md/pdf/docx）
 # 用途：验证大文件解析切块后自动入库
 # 注意：将 ./fixtures/sample.txt 替换为你本地实际文件路径
@@ -130,5 +379,92 @@ Content-Type: text/plain
 
 < ./fixtures/sample.txt
 --WebAppBoundary--
+
+###
+
+# ======================================================
+# PHASE5: Grading Agent 批改测试
+# 用途：验证客观题规则判分 + 主观题/编程题 LLM 判分 + 学情分析输出
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/grading/grade
+Content-Type: application/json
+Accept: application/json
+
+{
+  "exam_id": "exam-001",
+  "student_id": "stu-001",
+  "teacher_id": "teacher-001",
+  "questions": [
+    {
+      "question_id": "q-obj-1",
+      "question_type": "objective",
+      "stem": "HTTP 默认端口是？",
+      "max_score": 5,
+      "student_answer": "80",
+      "objective_rule": {
+        "expected_answer": "80",
+        "ignore_case": true,
+        "trim_whitespace": true
+      },
+      "knowledge_tags": ["network", "http"]
+    },
+    {
+      "question_id": "q-sub-1",
+      "question_type": "subjective",
+      "stem": "简述 RAG 标准流程。",
+      "max_score": 10,
+      "student_answer": "先检索再生成。",
+      "subjective_rubric": [
+        {"key": "retrieve", "description": "说明检索步骤", "score": 4},
+        {"key": "rerank", "description": "说明重排步骤", "score": 2},
+        {"key": "generate", "description": "说明生成步骤", "score": 4}
+      ],
+      "knowledge_tags": ["rag"]
+    },
+    {
+      "question_id": "q-code-1",
+      "question_type": "coding",
+      "stem": "实现一个函数，返回输入数组的最大值。",
+      "max_score": 15,
+      "student_answer": "def max_num(nums):\n    return max(nums)",
+      "coding_rubric": {
+        "requirements": ["函数正确返回最大值", "考虑空数组情况"],
+        "test_cases": ["[1,2,3] -> 3", "[] -> 合理异常或默认值"]
+      },
+      "knowledge_tags": ["python", "algorithm"]
+    }
+  ]
+}
+
+###
+
+# ======================================================
+# PHASE5: Orchestrator 执行 Grading Agent
+# 用途：验证路由到 grading_agent 时执行 grading_payload
+# ======================================================
+POST http://127.0.0.1:8000/api/v1/orchestrator/execute
+Content-Type: application/json
+Accept: application/json
+
+{
+  "query": "请批改这份试卷",
+  "session_id": "grading-session-001",
+  "user_id": "teacher-001",
+  "grading_payload": {
+    "exam_id": "exam-001",
+    "student_id": "stu-001",
+    "teacher_id": "teacher-001",
+    "questions": [
+      {
+        "question_id": "q-obj-1",
+        "question_type": "objective",
+        "stem": "HTTP 默认端口是？",
+        "max_score": 5,
+        "student_answer": "80",
+        "objective_rule": {"expected_answer": "80"}
+      }
+    ]
+  }
+}
 
 ###

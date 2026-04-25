@@ -5,3 +5,8 @@ langgraph
 httpx
 pypdf
 python-docx
+fastapi
+uvicorn
+pydantic
+prometheus-client
+pytest

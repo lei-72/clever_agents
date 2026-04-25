@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+import uuid
+
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import StreamingResponse
 
 from app.agents import QAAgentService
 from app.schemas.qa import (
@@ -15,6 +19,7 @@ from app.schemas.qa import (
 
 router = APIRouter()
 _qa_service: QAAgentService | None = None
+logger = logging.getLogger(__name__)
 
 
 async def _get_service() -> QAAgentService:
@@ -30,10 +35,30 @@ async def ask(payload: QARequest) -> QAResponse:
         service = await _get_service()
         return await service.run(payload)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"QA agent failed: {exc}",
-        ) from exc
+        trace_id = uuid.uuid4().hex
+        logger.exception("QA ask failed, fallback response returned. trace_id=%s", trace_id)
+        return QAResponse(
+            answer="当前问答服务暂时不可用，请稍后重试。",
+            confidence=0.0,
+            should_escalate=True,
+            sources=[],
+            trace_id=trace_id,
+        )
+
+
+@router.post("/stream")
+async def stream_ask(payload: QARequest) -> StreamingResponse:
+    """QA 流式输出接口（SSE）。"""
+    service = await _get_service()
+    return StreamingResponse(
+        service.stream_run(payload),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 """上传单个知识分块"""
 @router.post("/ingest", response_model=KnowledgeIngestResponse)

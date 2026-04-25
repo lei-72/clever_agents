@@ -6,7 +6,10 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from app.schemas.grading import GradingRequest, GradingResponse
+from app.schemas.interview import InterviewStartRequest, InterviewStartResponse
 from app.schemas.qa import QAResponse
+from app.schemas.resume import ResumeReviewRequest, ResumeReviewResponse
 
 
 class IntentLabel(str, Enum):
@@ -61,7 +64,16 @@ class OrchestratorExecuteResponse(BaseModel):
 
     route: OrchestratorRouteResult
     qa_result: QAResponse | None = None
+    grading_result: GradingResponse | None = None
+    interview_result: InterviewStartResponse | None = None
     message: str = Field(default="executed")
+
+
+class OrchestratorExecuteRequest(OrchestratorRequest):
+    """编排执行请求（支持附带 Agent 业务载荷）。"""
+
+    grading_payload: GradingRequest | None = None
+    interview_payload: InterviewStartRequest | None = None
 
 
 class SseEventType(str, Enum):
@@ -88,3 +100,113 @@ class SseEnvelope(BaseModel):
 
     event: SseEventType
     data: dict[str, object]
+
+
+class PipelineType(str, Enum):
+    """预置流水线类型。"""
+
+    JOB_COACHING = "job_coaching"
+    CODING_COACHING = "coding_coaching"
+    AUTO = "auto"
+
+
+class TaskStatus(str, Enum):
+    """任务状态。"""
+
+    PENDING = "pending"
+    RUNNING = "running"
+    SUCCESS = "success"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class PipelineTaskName(str, Enum):
+    """流水线原子任务名称。"""
+
+    RESUME_REVIEW = "resume_review"
+    INTERVIEW_SIMULATION = "interview_simulation"
+    CAREER_QA = "career_qa"
+    OFFER_ANALYSIS = "offer_analysis"
+    CODING_INTENT_PARSE = "coding_intent_parse"
+    CODE_GRADING = "code_grading"
+    BUG_FIX_QA = "bug_fix_qa"
+    KNOWLEDGE_EXPLAIN = "knowledge_explain"
+    OPTIMIZATION_QA = "optimization_qa"
+
+
+class PipelineTaskSpec(BaseModel):
+    """任务拆解结果。"""
+
+    name: PipelineTaskName
+    agent: AgentName
+    order: int = Field(..., ge=1)
+    reason: str = Field(..., min_length=1)
+    weight: float = Field(default=1.0, ge=0.0, le=1.0)
+
+
+class PipelineNodeTrace(BaseModel):
+    """节点级可观测追踪。"""
+
+    node_id: str
+    task: PipelineTaskName
+    agent: AgentName
+    status: TaskStatus
+    elapsed_ms: int = Field(..., ge=0)
+    input_preview: dict[str, object] = Field(default_factory=dict)
+    output_preview: dict[str, object] = Field(default_factory=dict)
+    error_message: str | None = None
+
+
+class PipelineTrace(BaseModel):
+    """全链路追踪信息。"""
+
+    pipeline_id: str
+    started_at: str
+    finished_at: str
+    total_elapsed_ms: int = Field(..., ge=0)
+    status: TaskStatus
+    nodes: list[PipelineNodeTrace] = Field(default_factory=list)
+
+
+class UnifiedResultItem(BaseModel):
+    """归一化后的标准结果项。"""
+
+    task: PipelineTaskName
+    title: str
+    summary: str
+    confidence: float = Field(default=0.7, ge=0.0, le=1.0)
+    source_agent: AgentName
+    tags: list[str] = Field(default_factory=list)
+    payload: dict[str, object] = Field(default_factory=dict)
+
+
+class UnifiedPipelineOutput(BaseModel):
+    """统一风格输出。"""
+
+    style: str = Field(default="unified-v1")
+    viewpoint: str = Field(default="assistant")
+    highlights: list[str] = Field(default_factory=list)
+    action_plan: list[str] = Field(default_factory=list)
+    result_items: list[UnifiedResultItem] = Field(default_factory=list)
+    final_message: str
+
+
+class OrchestratorPipelineRequest(OrchestratorRequest):
+    """多 Agent 流水线请求。"""
+
+    pipeline_type: PipelineType = Field(default=PipelineType.AUTO)
+    resume_payload: ResumeReviewRequest | None = None
+    interview_payload: InterviewStartRequest | None = None
+    grading_payload: GradingRequest | None = None
+    expect_trace: bool = Field(default=True, description="是否返回可观测链路追踪。")
+
+
+class OrchestratorPipelineResponse(BaseModel):
+    """多 Agent 流水线响应。"""
+
+    pipeline_type: PipelineType
+    inferred_intents: list[IntentLabel] = Field(default_factory=list)
+    tasks: list[PipelineTaskSpec] = Field(default_factory=list)
+    unified_output: UnifiedPipelineOutput
+    trace: PipelineTrace | None = None
+    message: str = Field(default="pipeline_executed")

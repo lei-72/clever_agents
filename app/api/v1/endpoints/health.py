@@ -28,3 +28,17 @@ async def readiness_check() -> MessageResponse:
     """本地/开发环境就绪检查接口。"""
 
     return MessageResponse(message="ready")
+
+
+@router.get("/llm")
+async def llm_status() -> dict[str, object]:
+    """LLM 运行配置与连通性提示（不暴露密钥）。"""
+
+    settings = get_settings()
+    return {
+        "configured": bool(settings.dashscope_api_key),
+        "base_url": settings.openai_base_url,
+        "chat_model": settings.qa_chat_model,
+        "embedding_model": settings.qa_embedding_model,
+        "timeout_seconds": settings.llm_timeout_seconds,
+    }
